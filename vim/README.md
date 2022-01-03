@@ -7,8 +7,8 @@
 
 ## Files
 * **:ls** list open files
-* **:e <path>** edit file
-* **:b <id>** switch to buffer id
+* **:e path** edit file
+* **:b id** switch to buffer id
 * **:w** write file
 
 ## Navigation

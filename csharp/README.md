@@ -15,5 +15,5 @@
 Note currently there is a bug in the **monodis** output where hex tokens miss ' '  
 In the disassembled.il add the ' ' around tokens before assembling
 > monodis --output=disassembled.il assembly.dll  
-> ilasm /dll /output:assembly.dll disassembled.il  
+> ilasm /dll /output:assembly2.dll disassembled.il  
 
