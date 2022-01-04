@@ -1,0 +1,13 @@
+[Unit]
+Description=Django web server
+After=mountebs.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/mnt/data/web
+ExecStart=python3 manage.py runsslserver 0.0.0.0:8443 --certificate cert.pem --key key.pem
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

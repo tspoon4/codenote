@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+
+<head>
+<title>DHT Search</title>
+<meta charset='utf-8'>
+<style>
+body { background-color:black; color:grey; font-family:"Monospace"; font-size:14px;}
+.cell { padding:5px }
+.cell2 { width:50%; padding:5px }
+</style>
+</head>
+
+<body>
+<div style='text-align:center'>
+<p>
+<form method="GET" action="/dhtsearch/search">
+<input style='background-color:lightgray' type='text' name='q' value='{{ qstring.query }}' size='40'>
+<button style='background-color:lightgray' type="submit">SEARCH</button>
+</form>
+</p>
+<p>
+{% for i in range %}
+{% if qstring.page == i %}{{ i }}
+{% else %}<a href='/dhtsearch/search?q={{ qstring.query}}&p={{ i }}&o={{ qstring.order }}'>{{ i }}</a>
+{% endif %}
+{% endfor %}
+<a href='/dhtsearch/top24'>top24</a>
+<a href='/dhtsearch/latest'>latest</a>
+<a href='/dhtsearch/stats'>stats</a>
+</p>
+</div>
+<table style='width:90%; margin-left:auto; margin-right:auto; border-collapse:collapse' border='1'>
+<tr>
+{% if qstring.order == 0 %}<th class='cell'>PEER</th>
+{% else %}<th class='cell'><a href='/dhtsearch/search?q={{ qstring.query }}&p={{ qstring.page }}&o=0'>PEER</a></th>{% endif %}
+{% if qstring.order == 1 %}<th class='cell'>HASH</th>
+{% else %}<th class='cell'><a href='/dhtsearch/search?q={{ qstring.query }}&p={{ qstring.page }}&o=1'>HASH</a></th>{% endif %}
+{% if qstring.order == 2 %}<th class='cell'>NAME</th>
+{% else %}<th class='cell'><a href='/dhtsearch/search?q={{ qstring.query }}&p={{ qstring.page }}&o=2'>NAME</a></th>{% endif %}
+{% if qstring.order == 3 %}<th class='cell'>DATE</th>
+{% else %}<th class='cell'><a href='/dhtsearch/search?q={{ qstring.query }}&p={{ qstring.page }}&o=3'>DATE</a></th>{% endif %}
+{% if qstring.order == 4 %}<th class='cell'>SIZE</th>
+{% else %}<th class='cell'><a href='/dhtsearch/search?q={{ qstring.query }}&p={{ qstring.page }}&o=4'>SIZE</a></th>{% endif %}
+{% if qstring.order == 5 %}<th class='cell'>FILE</th>
+{% else %}<th class='cell'><a href='/dhtsearch/search?q={{ qstring.query }}&p={{ qstring.page }}&o=5'>FILE</a></th>{% endif %}
+</tr>
+{% for t in torrents %}
+<tr>
+<td class='cell'><a href='/dhtsearch/peers?q={{ t.1 }}'>{{ t.0 }}</a></td>
+<td class='cell'>{{ t.1 }}</td>
+<td class='cell2'>{{ t.2 }}</td>
+<td class='cell'>{{ t.3|date:'Y-m-d' }}</td>
+<td class='cell'>{{ t.4 }}</td>
+<td class='cell'>{{ t.5 }}</td>
+</tr>
+{% endfor %}
+</table>
+</body>
+
+</html>
+

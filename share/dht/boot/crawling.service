@@ -1,0 +1,13 @@
+[Unit]
+Description=Crawling service
+After=mountebs.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/mnt/data/script
+ExecStart=python3 /mnt/data/script/run.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

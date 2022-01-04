@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+
+<head>
+<title>DHT Search</title>
+<meta charset='utf-8'>
+<style>
+body { background-color:black; color:grey; font-family:"Monospace"; font-size:14px;}
+.cell { padding:5px }
+</style>
+</head>
+
+<body>
+<div style='text-align:center'>
+<p>
+<form method="GET" action="/dhtsearch/search">
+<input style='background-color:lightgray' type='text' name="q" size='40'>
+<button style='background-color:lightgray' type="submit">SEARCH</button>
+</form>
+</p>
+<p>
+<a href='/dhtsearch/top24'>top24</a>
+<a href='/dhtsearch/latest'>latest</a>
+<a href='/dhtsearch/stats'>stats</a>
+</p>
+</div>
+<table style='width:90%; margin-left:auto; margin-right:auto; border-collapse:collapse' border='1'>
+<tr>
+<th class='cell'>NAME</th>
+<th class='cell'>DAY</th>
+<th class='cell'>WEEK</th>
+<th class='cell'>MONTH</th>
+</tr>
+<tr>
+<td class='cell'>DHT nodes visited</td>
+{% for i in dht_total %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+<tr>
+<td class='cell'>DHT nodes timeout</td>
+{% for i in dht_timeout %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+<tr>
+<td class='cell'>DHT nodes sampled</td>
+{% for i in dht_sample_ext %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+<tr>
+<td class='cell'>DHT peers discovered</td>
+{% for i in dht_peers %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+<tr>
+<td class='cell'>BT peers visited</td>
+{% for i in peers_total %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+<tr>
+<td class='cell'>BT peers timeout</td>
+{% for i in peers_timeout %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+<tr>
+<td class='cell'>BT peers metadata</td>
+{% for i in peers_metadata %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+<tr>
+<td class='cell'>BT torrents discovered</td>
+{% for i in peers_torrents %}
+<td class='cell'>{{ i }}</td>
+{% endfor %}
+</tr>
+
+</table>
+</body>
+
+</html>
+

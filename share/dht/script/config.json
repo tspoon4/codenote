@@ -1,0 +1,20 @@
+{
+    "crawlers": {
+        "dht": 6,
+        "metadata": 16,
+        "geoip": 1,
+        "polltime": 10
+    },
+    "postgres": {
+        "user": "postgres",
+        "password": "secret",
+        "host": "localhost",
+        "port": "5432",
+        "database": ""
+    },
+    "backup": {
+        "name": "dump_{0}.sql",
+        "folder": "/mnt/data/backup",
+        "history": 4
+    }
+}

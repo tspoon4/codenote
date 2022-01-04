@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+
+<head>
+<title>DHT Search</title>
+<meta charset='utf-8'>
+<style>
+body { background-color:black; color:grey; font-family:"Monospace"; font-size:14px;}
+.cell { padding:5px }
+.cell2 { width:50%; padding:5px }
+</style>
+</head>
+
+<body>
+<div style='text-align:center'>
+<p>
+<form method="GET" action="/dhtsearch/search">
+<input style='background-color:lightgray' type='text' name='q' size='40'>
+<button style='background-color:lightgray' type="submit">SEARCH</button>
+</form>
+</p>
+<p>
+<a href='/dhtsearch/top24'>top24</a>
+<a href='/dhtsearch/latest'>latest</a>
+<a href='/dhtsearch/stats'>stats</a>
+</p>
+</div>
+<table style='width:90%; margin-left:auto; margin-right:auto; border-collapse:collapse' border='1'>
+<tr>
+<th class='cell'>PEER</th>
+<th class='cell'>HASH</th>
+<th class='cell2'>NAME</th>
+<th class='cell'>DATE</th>
+<th class='cell'>SIZE</th>
+<th class='cell'>FILE</th>
+</tr>
+{% for t in torrents %}
+<tr>
+<td class='cell'><a href='/dhtsearch/peers?q={{ t.1 }}'>{{ t.0 }}</a></td>
+<td class='cell'>{{ t.1 }}</td>
+<td class='cell2'>{{ t.2 }}</td>
+<td class='cell'>{{ t.3|date:'Y-m-d' }}</td>
+<td class='cell'>{{ t.4 }}</td>
+<td class='cell'>{{ t.5 }}</td>
+</tr>
+{% endfor %}
+</table>
+</body>
+
+</html>
+

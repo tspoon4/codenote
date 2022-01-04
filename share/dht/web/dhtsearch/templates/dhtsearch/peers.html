@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+
+<head>
+<title>DHT Search</title>
+<meta charset='utf-8'>
+<style>
+body { background-color:black; color:grey; font-family:"Monospace"; font-size:14px;}
+.cell { padding:5px }
+</style>
+</head>
+
+<body>
+<div style='text-align:center'>
+<p>
+<form method="GET" action="/dhtsearch/search">
+<input style='background-color:lightgray' type='text' name='q' size='40'>
+<button style='background-color:lightgray' type="submit">SEARCH</button>
+</form>
+</p>
+<p>
+{% for i in range %}
+{% if qstring.page == i %}{{ i }}
+{% else %}<a href='/dhtsearch/peers?q={{ qstring.query }}&p={{ i }}&o={{ qstring.order }}'>{{ i }}</a>
+{% endif %}
+{% endfor %}
+<a href='/dhtsearch/top24'>top24</a>
+<a href='/dhtsearch/latest'>latest</a>
+<a href='/dhtsearch/stats'>stats</a>
+</p>
+</div>
+<table style='width:60%; margin-left:auto; margin-right:auto; border-collapse:collapse' border='1'>
+<tr>
+{% if qstring.order == 0 %}<th class='cell'>PEER</th>
+{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query}}&p={{ qstring.page }}&o=0'>PEER</a></th>{% endif %}
+{% if qstring.order == 1 %}<th class='cell'>COUNTRY</th>
+{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query }}&p={{ qstring.page }}&o=1'>COUNTRY</a></th>{% endif %}
+{% if qstring.order == 2 %}<th class='cell'>NAME</th>
+{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query }}&p={{ qstring.page }}&o=2'>NAME</a></th>{% endif %}
+</tr>
+{% for p in peers %}
+<tr>
+<td class='cell'>{{ p.0 }}</td>
+<td class='cell'>{{ p.1 }}</td>
+<td class='cell'>{{ p.2 }}</td>
+</tr>
+{% endfor %}
+</table>
+</body>
+
+</html>
+

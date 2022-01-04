@@ -1,0 +1,13 @@
+[Unit]
+Description=Mount EBS
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/bin/mount /dev/nvme1n1 /mnt/data
+ExecStop=/bin/umount /mnt/data
+RemainAfterExit=true
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
