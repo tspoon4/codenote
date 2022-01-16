@@ -30,7 +30,7 @@
 * **y%** Copy to the matching character (e.g. braces)
 * **dd** Delete the current line
 * **3dd** Delete 3 lines
-* **y$** Delete from the cursor to the end of the line
+* **d$** Delete from the cursor to the end of the line
 * **p** Paste after the cursor
 * **P** Paste before the cursor
 
@@ -47,3 +47,4 @@
 * **:%s/foo/bar/g** Find each foo occurrence **in all lines** and replace
 * **:%s/foo/bar/gci** Find each foo occurrence **in all lines** with confirmation and case insensitive
 * **:%s/\<foo\>/bar/gcI** Find each whole word foo occurrence **in all lines** with confirmation and case sensitive
+

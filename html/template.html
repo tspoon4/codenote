@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+
+<head>
+<title>LED Matrix</title>
+<meta charset='utf-8'>
+<style>
+.button { font-size: 30px; width:100%; height:200px }
+.cell { width:25% }
+</style>
+</head>
+
+<body>
+<script type='text/javascript'>
+function postURL(url)
+{
+	const request = new XMLHttpRequest();
+	request.open('POST', url, true);
+	request.send();
+}
+</script>
+<table style='width:100%'>
+<tr>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/0");'>BLACK</button></td>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/1");'>SQUARE</button></td>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/2");'>CIRCLE</button></td>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/3");'>PLASMA</button></td>
+</tr>
+<tr>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/4");'>FIRE</button></td>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/5");'>BLOB</button></td>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/6");'>PIXELS</button></td>
+<td class='cell'><button style='background-color:lightgray' class='button' onclick='postURL("/eff/7");'>VOXEL</button></td>
+</tr>
+<tr>
+<td class='cell'><button style='background-color:#FFD700' class='button' onclick='postURL("/pal/0");'>RAINBOW</button></td>
+<td class='cell'><button style='background-color:#FFA500' class='button' onclick='postURL("/pal/1");'>FIRE</button></td>
+<td class='cell'><button style='background-color:#00FFFF' class='button' onclick='postURL("/pal/2");'>TEMP</button></td>
+<td class='cell'><button style='background-color:#F5DEB3' class='button' onclick='postURL("/pal/3");'>EARTH</button></td>
+</tr>
+<tr>
+<td class='cell'><button style='background-color:#FFFF00' class='button' onclick='postURL("/pal/4");'>YELLOW</button></td>
+<td class='cell'><button style='background-color:#00FF7F' class='button' onclick='postURL("/pal/5");'>CYAN</button></td>
+<td class='cell'><button style='background-color:#FF00FF' class='button' onclick='postURL("/pal/6");'>PURPLE</button></td>
+<td class='cell'><button style='background-color:#00FFFF' class='button' onclick='postURL("/pal/7");'>CYAN2</button></td>
+</tr>
+<tr>
+<td class='cell'><button style='background-color:white' class='button' onclick='postURL("/pal/8");'>GRAD</button></td>
+<td class='cell'><button style='background-color:white' class='button' onclick='postURL("/pal/9");'>MIDDLE</button></td>
+<td class='cell'><button style='background-color:white' class='button' onclick='postURL("/pal/10");'>HIGH</button></td>
+<td class='cell'><button style='background-color:white' class='button' onclick='postURL("/pal/11");'>RING</button></td>
+</tr>
+</table>
+</body>
+
+</html>
+
