@@ -1,0 +1,16 @@
+# C related
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.elf
+*.elf
+*.exe
+
+# Python related
+__pycache__/
+*.py[cod]
+
+# Database related
+*.db
