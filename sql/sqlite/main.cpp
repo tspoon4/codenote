@@ -174,6 +174,8 @@ static void includecb(const char *_name, void *_data)
 	char like[512];
 	Source *source = (Source *) _data;
 
+	// TODO: preprocess _name as it can contain ../../ prefixes that we want to strip before matching pattern
+
 	strcpy(like, "%");
 	strcat(like, _name);
 	ret = sqlite3_reset(source->select_source);
@@ -233,36 +235,6 @@ static void filecb(const char *_path, const char *_name, size_t _size, void *_da
 }
 
 
-static int sourcecb(void *_data, int _count, char **_values, char **_headers)
-{
-	char path[512];
-	Source *source = (Source *) _data;
-
-	strcpy(path, source->root);
-	strcat(path, _values[1]);
-
-	printf("%s\n", path);
-
-	// TODO: remove atoi by using sqlite3_step instead of sqlite3_exec
-	source->parent = atoi(_values[0]);
-
-	FILE *fp = fopen(path, "r");
-	if(fp)
-	{
-		fseek(fp, 0, SEEK_END);
-		size_t size = ftell(fp);
-		fseek(fp, 0, SEEK_SET);
-		char *buffer = (char *) malloc(size + 1); buffer[size] = 0;
-		size_t ret = fread(buffer, 1, size, fp);
-		fclose(fp);
-		walk_source(buffer, includecb, _data);
-		free(buffer);
-	}
-
-	return 0; 
-}
-
-
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -302,9 +274,33 @@ int main(int argc, char *argv[])
 	source.id = 1;
 	walk_directory(source.root, "", true, &filecb, &source);
 
-	ret = sqlite3_exec(db, SELECT_SOURCE, &sourcecb, &source, &error);
-	if(error) { printf("%s\n", error); sqlite3_free(error); }
+	sqlite3_stmt *stmt_enum_source;
+	ret = sqlite3_prepare_v2(db, SELECT_SOURCE, -1, &stmt_enum_source, 0);
+	if(ret != SQLITE_OK) printf("SELECT_SOURCE %s\n%s\n", sqlite3_errmsg(db), SELECT_SOURCE);
 
+	char path[512];
+	ret = sqlite3_reset(stmt_enum_source);
+	while(sqlite3_step(stmt_enum_source) == SQLITE_ROW)
+	{
+		source.parent = sqlite3_column_int(stmt_enum_source, 0);
+		const char *local = (const char*) sqlite3_column_text(stmt_enum_source, 1);
+		int size = sqlite3_column_int(stmt_enum_source, 3);
+
+		strcpy(path, source.root);
+		strcat(path, local);
+		printf("%s\n", path);
+
+		FILE *fp = fopen(path, "r");
+		if(fp)
+		{
+			char *buffer = (char *) malloc(size + 1); buffer[size] = 0;
+			size_t count = fread(buffer, 1, size, fp);
+			walk_source(buffer, includecb, &source);
+			fclose(fp);
+		}
+	}
+
+	ret = sqlite3_finalize(stmt_enum_source);
 	ret = sqlite3_finalize(stmt_insert_source);
 	ret = sqlite3_finalize(stmt_insert_adjacency);
 	ret = sqlite3_finalize(stmt_select_source);
