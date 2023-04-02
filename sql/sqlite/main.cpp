@@ -36,16 +36,17 @@ const char INSERT_ADJACENCY[] =
 const char SELECT_SOURCE[] = "SELECT * FROM source;";
 const char SELECT_SOURCE_LIKE[] = "SELECT * FROM source WHERE path LIKE ?1;";
 
-const char TOP_INCLUDING[] = "SELECT child, path, COUNT(*) AS count, SUM(size) AS sum FROM adjacency JOIN source ON child = id GROUP BY child ORDER BY sum DESC LIMIT 1000;";
-const char TOP_INCLUDED[] = "SELECT parent, path, COUNT(*) AS count, SUM(size) AS sum FROM adjacency JOIN source ON parent = id GROUP BY parent ORDER BY sum DESC LIMIT 1000;";
-const char FILE_INCLUDING[] = "SELECT child, path, size, depth FROM adjacency JOIN source ON child = id WHERE parent = 68 AND depth < 3;";
-const char FILE_INCLUDED[] = "SELECT parent, path, size, depth FROM adjacency JOIN source ON parent = id WHERE child = 3075 AND depth < 3;";
+const char TOP_INCLUDEE[] = "SELECT child, path, COUNT(*) AS count, SUM(size) AS sum FROM adjacency JOIN source ON child = id GROUP BY child ORDER BY sum DESC LIMIT 1000;";
+const char TOP_INCLUDER[] = "SELECT parent, path, COUNT(*) AS count, SUM(size) AS sum FROM adjacency JOIN source ON parent = id GROUP BY parent ORDER BY sum DESC LIMIT 1000;";
+const char FILE_INCLUDEE[] = "SELECT child, path, size, depth FROM adjacency JOIN source ON child = id WHERE parent = 68 AND depth < 3;";
+const char FILE_INCLUDER[] = "SELECT parent, path, size, depth FROM adjacency JOIN source ON parent = id WHERE child = 3075 AND depth < 3;";
 
 enum State
 {
 	STATE_GLOBAL = 0,
 	STATE_COMMENT_C,
 	STATE_COMMENT_CPP,
+	STATE_STRING,
 	STATE_INCLUDE,
 	INCLUDE_GLOBAL,
 	INCLUDE_SYSTEM,
@@ -73,10 +74,15 @@ bool walk_source(const char *_buffer, include_cb _callback, void *_data)
 		{
 			case STATE_GLOBAL:
 				if(*ptr == 0) { ptr = 0; }
+				else if(*ptr == '"') { state = STATE_STRING; ++ptr; }
 				else if(strncmp(ptr, TOK_C_BEGIN, sizeof(TOK_C_BEGIN)-1) == 0) { state = STATE_COMMENT_C; ptr += sizeof(TOK_C_BEGIN)-1; }
 				else if(strncmp(ptr, TOK_CPP_BEGIN, sizeof(TOK_CPP_BEGIN)-1) == 0) { state = STATE_COMMENT_CPP; ptr += sizeof(TOK_CPP_BEGIN)-1; }
 				else if(strncmp(ptr, TOK_INCLUDE, sizeof(TOK_INCLUDE)-1) == 0) { state = STATE_INCLUDE; substate = INCLUDE_GLOBAL; ptr += sizeof(TOK_INCLUDE)-1; }
 				else { ++ptr; }
+				break;
+			case STATE_STRING:
+				ptr = strchr(ptr, '"');
+				if(ptr) { state = STATE_GLOBAL; ++ptr; }
 				break;
 			case STATE_COMMENT_C:
 				ptr = strstr(ptr, TOK_C_END);
@@ -97,14 +103,16 @@ bool walk_source(const char *_buffer, include_cb _callback, void *_data)
 						else { state = STATE_GLOBAL; }
 						break;
 					case INCLUDE_SYSTEM:
+						while(*ptr == '.' || *ptr == '/') ++ptr;
 						begin = ptr;
 						ptr = strchr(ptr, '>');
-						if(ptr) { state = STATE_GLOBAL; strncpy(text, begin, ptr-begin); text[ptr-begin] = 0; _callback(text, _data); }
+						if(ptr) { state = STATE_GLOBAL; strncpy(text, begin, ptr-begin); text[ptr-begin] = 0; _callback(text, _data); ++ptr; }
 						break;
 					case INCLUDE_CURRENT:
+						while(*ptr == '.' || *ptr == '/') ++ptr;
 						begin = ptr;
 						ptr = strchr(ptr, '"');
-						if(ptr) { state = STATE_GLOBAL; strncpy(text, begin, ptr-begin); text[ptr-begin] = 0; _callback(text, _data); }
+						if(ptr) { state = STATE_GLOBAL; strncpy(text, begin, ptr-begin); text[ptr-begin] = 0; _callback(text, _data); ++ptr; }
 						break;
 				}
 				break;
@@ -250,7 +258,7 @@ int main(int argc, char *argv[])
 
 	ret = sqlite3_exec(db, CREATE_SCHEMA, 0, 0, &error);
 	if(error) { printf("%s\n", error); sqlite3_free(error); }
-	
+
 	sqlite3_stmt *stmt_insert_source;
 	ret = sqlite3_prepare_v2(db, INSERT_SOURCE, -1, &stmt_insert_source, 0);
 	if(ret != SQLITE_OK) printf("INSERT_SOURCE %s\n%s\n", sqlite3_errmsg(db), INSERT_SOURCE);
