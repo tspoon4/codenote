@@ -1,8 +1,14 @@
+#include <FS.h>
+#include <SD.h>
+#include <SPI.h>
+#include <WiFi.h>
+#include <WebServer.h>
 #include "dsp.h"
 
 #define RX433_PIN GPIO_NUM_2
 #define TX433_PIN GPIO_NUM_4
 #define RXIR_PIN GPIO_NUM_5
+#define TXIR_PIN GPIO_NUM_18
 #define SERIAL_SPEED 115200
 
 
@@ -21,7 +27,67 @@ struct Global
   State state;
   hw_timer_t *timer0;
   uint64_t startus;
+  uint32_t txpin;
+  uint32_t bit;
 } global;
+
+
+const char ssid[] = "wifi-name-placeholder";
+const char password[] = "wifi-password-placeholder";
+const char index_html[] = "index";
+WebServer web(80);
+
+
+void handleRoot() { web.send(200, "text/html", index_html); }
+void handleOk() { web.send(200, "text/plain", "Ok");}
+void handleNotFound()
+{
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += web.uri();
+  message += "\nMethod: ";
+  message += (web.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += web.args();
+  message += "\n";
+  for (uint8_t i = 0; i < web.args(); i++) {
+    message += " " + web.argName(i) + ": " + web.arg(i) + "\n";
+  }
+  web.send(404, "text/plain", message);
+}
+
+
+void debugHistogram(Histogram *_histogram)
+{
+  for(uint16_t i = 0; i < _histogram->count; ++i)
+  {
+    Serial.print(bitDurations[i]);
+    Serial.print(" : ");
+    Serial.print(_histogram->buckets[i].count);
+    Serial.print(", ");
+    Serial.print(_histogram->buckets[i].min);
+    Serial.print(", ");
+    Serial.print(_histogram->buckets[i].max);
+    Serial.println("");
+  }
+}
+
+
+void debugSignal(Signal *_signal)
+{
+  for(uint16_t i = 0; i < _signal->count; ++i)
+  {
+    Serial.println(_signal->data[i]);
+  }
+}
+
+
+void debugDigital(Digital *_digital)
+{
+  for(uint16_t i = 0; i < (_digital->count >> 3) + 1; ++i)
+    Serial.print(_digital->data[i], HEX);
+  Serial.println("");
+}
 
 
 void IRAM_ATTR rxInterrupt()
@@ -38,6 +104,13 @@ void IRAM_ATTR rxInterrupt()
 }
 
 
+void IRAM_ATTR txInterrupt()
+{
+  digitalWrite(global.txpin, global.bit ? HIGH : LOW);
+  global.bit ^= 1;
+}
+
+
 void setup()
 {
   Serial.begin(SERIAL_SPEED);
@@ -46,8 +119,27 @@ void setup()
   pinMode(RX433_PIN, INPUT);
   pinMode(TX433_PIN, OUTPUT);
   pinMode(RXIR_PIN, INPUT);
+  pinMode(TXIR_PIN, OUTPUT);
 
   global.state = STATE_IDLE;
+
+  // Initialize wifi
+  // WiFi.mode(WIFI_STA);
+  // WiFi.begin(ssid, password);
+  // Serial.println("");
+  // while (WiFi.status() != WL_CONNECTED)
+  // {
+  //   delay(500);
+  //   Serial.print(".");
+  // }
+  // Serial.println("");
+  // Serial.print("Connected to ");
+  // Serial.println(ssid);
+  // Serial.print("IP address: ");
+  // Serial.println(WiFi.localIP());
+
+  //server.on("/", handleRoot);
+  //server.on("/eff/0", [](){ effect = E_BLACK; handleOk(); });
 }
 
 
@@ -74,6 +166,28 @@ void stateIdle()
 
       global.state = STATE_RECEIVE;
     }
+    else if(cmd.equals("tx433\n"))
+    {
+      global.timer0 = timerBegin(0, 80, true);
+      timerAttachInterrupt(global.timer0, &txInterrupt, true);
+      timerAlarmWrite(global.timer0, 1000, true);
+      timerAlarmEnable(global.timer0);
+
+      global.bit = 0;
+      global.txpin = TX433_PIN;
+      global.state = STATE_TRANSMIT;
+    }
+    else if(cmd.equals("txIR\n"))
+    {
+      global.timer0 = timerBegin(0, 80, true);
+      timerAttachInterrupt(global.timer0, &txInterrupt, true);
+      timerAlarmWrite(global.timer0, 1000, true);
+      timerAlarmEnable(global.timer0);
+
+      global.bit = 0;
+      global.txpin = TXIR_PIN;
+      global.state = STATE_TRANSMIT;
+    }
   }
 }
 
@@ -93,33 +207,37 @@ void stateReceive()
       timerEnd(global.timer0);
       global.state = STATE_IDLE;
 
+      debugSignal(&global.signal);
+
       // Analyse signal
+      Histogram histogram;
+      dspSignalHistogram(&global.signal, &histogram);
+      debugHistogram(&histogram);
+
+      // Convert signal to digital
       Digital digital;
-      dspSignalDigital(&global.signal, &digital);
-
-      // Print message information
-      Serial.print(global.signal.count);
-      Serial.print("s, ");
-      Serial.print(digital.count);
-      Serial.print("d, ");
-      Serial.print(digital.clockus);
-      Serial.print("us, ");
-
-      // Print message
-      for(uint16_t i = 0; i < (digital.count >> 3) + 1; ++i)
-        Serial.print(digital.data[i], HEX);
-      Serial.println("");      
+      dspSignalDigital(&global.signal, &digital, 556);
+      debugDigital(&digital);
     }
   }
 }
 
 
+void stateTransmit()
+{
+  delay(5);
+}
+
+
 void loop()
 {
+  //web.handleClient();
+
   switch(global.state)
   {
     case STATE_IDLE: stateIdle(); break;
     case STATE_RECEIVE: stateReceive(); break;
+    case STATE_TRANSMIT: stateTransmit(); break;
   }
 }
 
