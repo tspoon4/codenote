@@ -9,6 +9,14 @@
 #define TX433_PIN GPIO_NUM_4
 #define RXIR_PIN GPIO_NUM_5
 #define TXIR_PIN GPIO_NUM_18
+
+#define HSPI_MOSI GPIO_NUM_13
+#define HSPI_MISO GPIO_NUM_12
+#define HSPI_CLK GPIO_NUM_14
+
+#define SDCARD_CS GPIO_NUM_15
+#define PN532_CS GPIO_NUM_27
+
 #define SERIAL_SPEED 115200
 
 
@@ -90,6 +98,43 @@ void debugDigital(Digital *_digital)
 }
 
 
+void testSD()
+{
+  const char path[] = "/data.txt";
+  Serial.println("[Log] Running tests on SD card");
+
+  // Test writing file
+  {
+    File file = SD.open(path, FILE_WRITE);
+    if(file)
+    {
+      const char buf[] = "toto";
+      file.write((uint8_t *) buf, sizeof(buf));
+      file.close();
+    }
+    else { Serial.println("[Error] Failed to open file"); }    
+  }
+
+  // Test reading file
+  {
+    File file = SD.open(path, FILE_READ);
+    if(file)
+    {
+      char buf[5];
+      file.read((uint8_t *)buf, 5);
+      Serial.print("[Log] String read from SD card : ");
+      Serial.println(buf);
+      file.close();
+    }
+    else { Serial.println("[Error] Failed to open file"); }    
+  }
+
+  // Test removing file
+  int ret = SD.remove(path);
+  if(ret != 1) { Serial.println("[Error] File removal failed"); }
+}
+
+
 void IRAM_ATTR rxInterrupt()
 {
   uint64_t timeus = timerReadMicros(global.timer0);
@@ -113,8 +158,18 @@ void IRAM_ATTR txInterrupt()
 
 void setup()
 {
+  // Initialize Serial
   Serial.begin(SERIAL_SPEED);
   Serial.setTimeout(100);
+
+  // SPI settings
+  SPIClass spi = SPIClass(HSPI);
+  spi.begin(HSPI_CLK, HSPI_MISO, HSPI_MOSI);
+
+  // Initialize SD Card
+  if(SD.begin(SDCARD_CS, spi)) { Serial.println("[Log] SD Card mount successful"); }
+  else { Serial.println("[Error] SD Card mount failed"); }
+  //testSD();
 
   pinMode(RX433_PIN, INPUT);
   pinMode(TX433_PIN, OUTPUT);
