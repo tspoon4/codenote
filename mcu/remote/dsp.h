@@ -97,6 +97,20 @@ bool dspSignalHistogram(Signal *_input, Histogram *_histogram)
   return true;
 }
 
+uint16_t dspHistogramClock(const Histogram *_histogram)
+{  
+  uint16_t count = 0;
+  uint16_t index = 0xffff;
+
+  for(uint16_t i = 0; i < _histogram->count; ++i)
+  {
+    if(_histogram->buckets[i].count < count) { index = i - 1; break; }
+    else count = _histogram->buckets[i].count;
+  }
+
+  return index;
+}
+
 bool dspSignalDigital(Signal *_input, Digital *_output, uint16_t _clockus)
 {  
   uint8_t bit = 0;

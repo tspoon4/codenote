@@ -1,21 +1,23 @@
+
 #include <FS.h>
 #include <SD.h>
 #include <SPI.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Adafruit_PN532.h>
 #include "dsp.h"
 
-#define RX433_PIN GPIO_NUM_2
-#define TX433_PIN GPIO_NUM_4
-#define RXIR_PIN GPIO_NUM_5
-#define TXIR_PIN GPIO_NUM_18
+#define RX433_PIN GPIO_NUM_18
+#define TX433_PIN GPIO_NUM_19
+#define RXIR_PIN GPIO_NUM_22
+#define TXIR_PIN GPIO_NUM_23
 
 #define HSPI_MOSI GPIO_NUM_13
-#define HSPI_MISO GPIO_NUM_12
+#define HSPI_MISO GPIO_NUM_27
 #define HSPI_CLK GPIO_NUM_14
 
-#define SDCARD_CS GPIO_NUM_15
-#define PN532_CS GPIO_NUM_27
+#define SDCARD_CS GPIO_NUM_26
+#define PN532_CS GPIO_NUM_25
 
 #define SERIAL_SPEED 115200
 
@@ -32,11 +34,12 @@ enum State
 struct Global
 {  
   Signal signal;
+  Digital digital;
   State state;
   hw_timer_t *timer0;
   uint64_t startus;
   uint32_t txpin;
-  uint32_t bit;
+  uint32_t txindex;
 } global;
 
 
@@ -44,6 +47,8 @@ const char ssid[] = "wifi-name-placeholder";
 const char password[] = "wifi-password-placeholder";
 const char index_html[] = "index";
 WebServer web(80);
+SPIClass spi = SPIClass(HSPI);
+Adafruit_PN532 nfc(PN532_CS, &spi);
 
 
 void handleRoot() { web.send(200, "text/html", index_html); }
@@ -151,19 +156,39 @@ void IRAM_ATTR rxInterrupt()
 
 void IRAM_ATTR txInterrupt()
 {
-  digitalWrite(global.txpin, global.bit ? HIGH : LOW);
-  global.bit ^= 1;
+  if(global.txindex < global.digital.count)
+  {
+    uint16_t index = global.txindex >> 3;
+    uint16_t bitindex = global.txindex % 8;
+    uint8_t bit = (global.digital.data[index] >> (7 - bitindex)) & 0x1;
+
+    bit ^= 1;
+
+    digitalWrite(global.txpin, bit ? HIGH : LOW);
+    ++global.txindex;
+  }
 }
 
 
 void setup()
 {
+  // Setup pins
+  pinMode(RX433_PIN, INPUT);
+  pinMode(TX433_PIN, OUTPUT);
+  pinMode(RXIR_PIN, INPUT);
+  pinMode(TXIR_PIN, OUTPUT);
+  pinMode(SDCARD_CS, OUTPUT);
+  pinMode(PN532_CS, OUTPUT);
+
+  digitalWrite(SDCARD_CS, HIGH);
+  digitalWrite(PN532_CS, HIGH);
+  delay(10);
+
   // Initialize Serial
   Serial.begin(SERIAL_SPEED);
   Serial.setTimeout(100);
 
   // SPI settings
-  SPIClass spi = SPIClass(HSPI);
   spi.begin(HSPI_CLK, HSPI_MISO, HSPI_MOSI);
 
   // Initialize SD Card
@@ -171,10 +196,17 @@ void setup()
   else { Serial.println("[Error] SD Card mount failed"); }
   //testSD();
 
-  pinMode(RX433_PIN, INPUT);
-  pinMode(TX433_PIN, OUTPUT);
-  pinMode(RXIR_PIN, INPUT);
-  pinMode(TXIR_PIN, OUTPUT);
+  // Initialize PN532
+  nfc.begin();
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  if (! versiondata) {
+    Serial.print("Didn't find PN53x board");
+    while (1); // halt
+  }
+  // Got ok data, print it out!
+  Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
+  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
+  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
 
   global.state = STATE_IDLE;
 
@@ -225,10 +257,10 @@ void stateIdle()
     {
       global.timer0 = timerBegin(0, 80, true);
       timerAttachInterrupt(global.timer0, &txInterrupt, true);
-      timerAlarmWrite(global.timer0, 1000, true);
+      timerAlarmWrite(global.timer0, global.digital.clockus, true);
       timerAlarmEnable(global.timer0);
 
-      global.bit = 0;
+      global.txindex = 0;
       global.txpin = TX433_PIN;
       global.state = STATE_TRANSMIT;
     }
@@ -236,10 +268,10 @@ void stateIdle()
     {
       global.timer0 = timerBegin(0, 80, true);
       timerAttachInterrupt(global.timer0, &txInterrupt, true);
-      timerAlarmWrite(global.timer0, 1000, true);
+      timerAlarmWrite(global.timer0, global.digital.clockus, true);
       timerAlarmEnable(global.timer0);
 
-      global.bit = 0;
+      global.txindex = 0;
       global.txpin = TXIR_PIN;
       global.state = STATE_TRANSMIT;
     }
@@ -269,10 +301,11 @@ void stateReceive()
       dspSignalHistogram(&global.signal, &histogram);
       debugHistogram(&histogram);
 
+      uint16_t index = dspHistogramClock(&histogram);
+
       // Convert signal to digital
-      Digital digital;
-      dspSignalDigital(&global.signal, &digital, 556);
-      debugDigital(&digital);
+      dspSignalDigital(&global.signal, &global.digital, bitDurations[index]);
+      debugDigital(&global.digital);
     }
   }
 }
@@ -281,6 +314,16 @@ void stateReceive()
 void stateTransmit()
 {
   delay(5);
+
+  if(global.txindex == global.digital.count)
+  {
+      timerAlarmDisable(global.timer0);
+      timerDetachInterrupt(global.timer0);
+      timerEnd(global.timer0);
+      global.state = STATE_IDLE;
+
+      debugDigital(&global.digital);
+  }
 }
 
 
