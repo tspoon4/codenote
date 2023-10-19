@@ -117,20 +117,27 @@ bool dspSignalDigital(Signal *_input, Digital *_output, uint16_t _clockus)
   _output->count = 0;
   _output->clockus = _clockus;
   memset(_output->data, 0, sizeof(uint8_t) * DIGITAL_SIZE);
+
   for(uint16_t i = 0; i < _input->count; ++i)
   {
-    bit ^= 0x1;
-    float bitcount = (float)_input->data[i] / _output->clockus;
-    uint16_t count = (uint16_t) round(bitcount);
-
-    for(uint16_t j = 0; j < count; ++j)
+    if(_input->data[i] > 0)
     {
-      uint16_t index = _output->count >> 3;
-      uint16_t bitindex = _output->count % 8;
-      _output->data[index] |= bit << (7 - bitindex);
-      _output->count++;
+      bit ^= 0x1;
+      float bitcount = (float)_input->data[i] / _output->clockus;
+      uint16_t count = (uint16_t) round(bitcount);
+
+      for(uint16_t j = 0; j < count; ++j)
+      {
+        uint16_t index = _output->count >> 3;
+        uint16_t bitindex = _output->count % 8;
+        _output->data[index] |= bit << (7 - bitindex);
+        _output->count++;
+      }
     }
   }
+
+  // Add a trailing 0
+  _output->count++;
   
   return true;
 }

@@ -20,6 +20,7 @@
 #define PN532_CS GPIO_NUM_25
 
 #define SERIAL_SPEED 115200
+#define RX_TIMEOUT 50000
 
 
 enum State
@@ -162,8 +163,6 @@ void IRAM_ATTR txInterrupt()
     uint16_t bitindex = global.txindex % 8;
     uint8_t bit = (global.digital.data[index] >> (7 - bitindex)) & 0x1;
 
-    bit ^= 1;
-
     digitalWrite(global.txpin, bit ? HIGH : LOW);
     ++global.txindex;
   }
@@ -191,10 +190,12 @@ void setup()
   // SPI settings
   spi.begin(HSPI_CLK, HSPI_MISO, HSPI_MOSI);
 
+/*
   // Initialize SD Card
   if(SD.begin(SDCARD_CS, spi)) { Serial.println("[Log] SD Card mount successful"); }
   else { Serial.println("[Error] SD Card mount failed"); }
   //testSD();
+*/
 
   // Initialize PN532
   nfc.begin();
@@ -251,7 +252,7 @@ void stateIdle()
       global.timer0 = timerBegin(0, 80, true);
       attachInterrupt(RXIR_PIN, &rxInterrupt, CHANGE);
 
-      global.state = STATE_RECEIVE;
+      global.state = STATE_RECEIVE;      
     }
     else if(cmd.equals("tx433\n"))
     {
@@ -287,7 +288,7 @@ void stateReceive()
   {
     uint64_t timeus = timerReadMicros(global.timer0);
 
-    if(timeus - global.startus > 15000)
+    if(timeus - global.startus > RX_TIMEOUT)
     {
       detachInterrupt(RX433_PIN);
       detachInterrupt(RXIR_PIN);
