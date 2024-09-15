@@ -151,3 +151,35 @@ bool dspDigitalSignal(Digital *output, Signal *input)
 {
 
 }
+
+void dspDebugHistogram(Histogram *_histogram)
+{
+  for(uint16_t i = 0; i < _histogram->count; ++i)
+  {
+    Serial.print(bitDurations[i]);
+    Serial.print(" : ");
+    Serial.print(_histogram->buckets[i].count);
+    Serial.print(", ");
+    Serial.print(_histogram->buckets[i].min);
+    Serial.print(", ");
+    Serial.print(_histogram->buckets[i].max);
+    Serial.println("");
+  }
+}
+
+
+void dspDebugSignal(Signal *_signal)
+{
+  for(uint16_t i = 0; i < _signal->count; ++i)
+  {
+    Serial.println(_signal->data[i]);
+  }
+}
+
+
+void dspDebugDigital(Digital *_digital)
+{
+  for(uint16_t i = 0; i < (_digital->count >> 3) + 1; ++i)
+    Serial.print(_digital->data[i], HEX);
+  Serial.println("");
+}

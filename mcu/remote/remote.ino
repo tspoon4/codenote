@@ -20,7 +20,7 @@
 #define PN532_CS GPIO_NUM_25
 
 #define SERIAL_SPEED 115200
-#define RX_TIMEOUT 50000
+#define RX_TIMEOUT 15000
 
 
 enum State
@@ -28,6 +28,9 @@ enum State
   STATE_IDLE = 0,
   STATE_RECEIVE,
   STATE_TRANSMIT,
+  STATE_NFC_READ,
+  STATE_NFC_WRITE,
+  STATE_NFC_EMULATE,
   STATE_COUNT
 };
 
@@ -71,39 +74,6 @@ void handleNotFound()
 }
 
 
-void debugHistogram(Histogram *_histogram)
-{
-  for(uint16_t i = 0; i < _histogram->count; ++i)
-  {
-    Serial.print(bitDurations[i]);
-    Serial.print(" : ");
-    Serial.print(_histogram->buckets[i].count);
-    Serial.print(", ");
-    Serial.print(_histogram->buckets[i].min);
-    Serial.print(", ");
-    Serial.print(_histogram->buckets[i].max);
-    Serial.println("");
-  }
-}
-
-
-void debugSignal(Signal *_signal)
-{
-  for(uint16_t i = 0; i < _signal->count; ++i)
-  {
-    Serial.println(_signal->data[i]);
-  }
-}
-
-
-void debugDigital(Digital *_digital)
-{
-  for(uint16_t i = 0; i < (_digital->count >> 3) + 1; ++i)
-    Serial.print(_digital->data[i], HEX);
-  Serial.println("");
-}
-
-
 void testSD()
 {
   const char path[] = "/data.txt";
@@ -138,6 +108,120 @@ void testSD()
   // Test removing file
   int ret = SD.remove(path);
   if(ret != 1) { Serial.println("[Error] File removal failed"); }
+}
+
+
+void testNFC(void) {
+  uint8_t success;                          // Flag to check if there was an error with the PN532
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+  uint8_t currentblock;                     // Counter to keep track of which block we're on
+  bool authenticated = false;               // Flag to indicate if the sector is authenticated
+  uint8_t data[16];                         // Array to store block data during reads
+
+  // Keyb on NDEF and Mifare Classic should be the same
+  uint8_t keyuniversal[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+
+  // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
+  // 'uid' will be populated with the UID, and uidLength will indicate
+  // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+
+  if (success) {
+    // Display some basic information about the card
+    Serial.println("Found an ISO14443A card");
+    Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+    Serial.print("  UID Value: ");
+    nfc.PrintHex(uid, uidLength);
+    Serial.println("");
+
+    if (uidLength == 4)
+    {
+      // We probably have a Mifare Classic card ...
+      Serial.println("Seems to be a Mifare Classic card (4 byte UID)");
+
+      // Now we try to go through all 16 sectors (each having 4 blocks)
+      // authenticating each sector, and then dumping the blocks
+      for (currentblock = 0; currentblock < 64; currentblock++)
+      {
+        // Check if this is a new block so that we can reauthenticate
+        if (nfc.mifareclassic_IsFirstBlock(currentblock)) authenticated = false;
+
+        // If the sector hasn't been authenticated, do so first
+        if (!authenticated)
+        {
+          // Starting of a new sector ... try to to authenticate
+          Serial.print("------------------------Sector ");Serial.print(currentblock/4, DEC);Serial.println("-------------------------");
+          if (currentblock == 0)
+          {
+              // This will be 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF for Mifare Classic (non-NDEF!)
+              // or 0xA0 0xA1 0xA2 0xA3 0xA4 0xA5 for NDEF formatted cards using key a,
+              // but keyb should be the same for both (0xFF 0xFF 0xFF 0xFF 0xFF 0xFF)
+              success = nfc.mifareclassic_AuthenticateBlock (uid, uidLength, currentblock, 1, keyuniversal);
+          }
+          else
+          {
+              // This will be 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF for Mifare Classic (non-NDEF!)
+              // or 0xD3 0xF7 0xD3 0xF7 0xD3 0xF7 for NDEF formatted cards using key a,
+              // but keyb should be the same for both (0xFF 0xFF 0xFF 0xFF 0xFF 0xFF)
+              success = nfc.mifareclassic_AuthenticateBlock (uid, uidLength, currentblock, 1, keyuniversal);
+          }
+          if (success)
+          {
+            authenticated = true;
+          }
+          else
+          {
+            Serial.println("Authentication error");
+          }
+        }
+        // If we're still not authenticated just skip the block
+        if (!authenticated)
+        {
+          Serial.print("Block ");Serial.print(currentblock, DEC);Serial.println(" unable to authenticate");
+        }
+        else
+        {
+          // Authenticated ... we should be able to read the block now
+          // Dump the data into the 'data' array
+          success = nfc.mifareclassic_ReadDataBlock(currentblock, data);
+          if (success)
+          {
+            // Read successful
+            Serial.print("Block ");Serial.print(currentblock, DEC);
+            if (currentblock < 10)
+            {
+              Serial.print("  ");
+            }
+            else
+            {
+              Serial.print(" ");
+            }
+            // Dump the raw data
+            nfc.PrintHexChar(data, 16);
+          }
+          else
+          {
+            // Oops ... something happened
+            Serial.print("Block ");Serial.print(currentblock, DEC);
+            Serial.println(" unable to read this block");
+          }
+        }
+      }
+    }
+    else
+    {
+      Serial.println("Ooops ... this doesn't seem to be a Mifare Classic card!");
+    }
+  }
+  // Wait a bit before trying again
+  // Serial.println("\n\nSend a character to run the mem dumper again!");
+  // Serial.flush();
+  // while (!Serial.available());
+  // while (Serial.available()) {
+  // Serial.read();
+  // }
+  // Serial.flush();
 }
 
 
@@ -176,12 +260,8 @@ void setup()
   pinMode(TX433_PIN, OUTPUT);
   pinMode(RXIR_PIN, INPUT);
   pinMode(TXIR_PIN, OUTPUT);
-  pinMode(SDCARD_CS, OUTPUT);
-  pinMode(PN532_CS, OUTPUT);
 
-  digitalWrite(SDCARD_CS, HIGH);
-  digitalWrite(PN532_CS, HIGH);
-  delay(10);
+  delay(100);
 
   // Initialize Serial
   Serial.begin(SERIAL_SPEED);
@@ -190,12 +270,10 @@ void setup()
   // SPI settings
   spi.begin(HSPI_CLK, HSPI_MISO, HSPI_MOSI);
 
-/*
   // Initialize SD Card
   if(SD.begin(SDCARD_CS, spi)) { Serial.println("[Log] SD Card mount successful"); }
   else { Serial.println("[Error] SD Card mount failed"); }
-  //testSD();
-*/
+  testSD();
 
   // Initialize PN532
   nfc.begin();
@@ -234,6 +312,8 @@ void setup()
 void stateIdle()
 {
   delay(100);
+
+  //testNFC();
 
   if(Serial.available())
   {
@@ -276,6 +356,18 @@ void stateIdle()
       global.txpin = TXIR_PIN;
       global.state = STATE_TRANSMIT;
     }
+    else if(cmd.equals("rNFC\n"))
+    {
+      global.state = STATE_NFC_READ;
+    }
+    else if(cmd.equals("wNFC\n"))
+    {
+
+    }
+    else if(cmd.equals("eNFC\n"))
+    {
+
+    }
   }
 }
 
@@ -295,18 +387,18 @@ void stateReceive()
       timerEnd(global.timer0);
       global.state = STATE_IDLE;
 
-      debugSignal(&global.signal);
+      dspDebugSignal(&global.signal);
 
       // Analyse signal
       Histogram histogram;
       dspSignalHistogram(&global.signal, &histogram);
-      debugHistogram(&histogram);
+      dspDebugHistogram(&histogram);
 
       uint16_t index = dspHistogramClock(&histogram);
 
       // Convert signal to digital
       dspSignalDigital(&global.signal, &global.digital, bitDurations[index]);
-      debugDigital(&global.digital);
+      dspDebugDigital(&global.digital);
     }
   }
 }
@@ -323,8 +415,38 @@ void stateTransmit()
       timerEnd(global.timer0);
       global.state = STATE_IDLE;
 
-      debugDigital(&global.digital);
+      dspDebugDigital(&global.digital);
   }
+}
+
+
+void stateNFCRead()
+{
+  delay(100);  
+
+  bool success;
+  uint8_t recv[255];
+  uint8_t recvLength = 0;
+
+  success = nfc.inListPassiveTarget();
+  if(success)
+  {
+    Serial.println("[Log] Success enumerating passive smart card");
+
+    uint8_t apdu[] = {0x00, 0xA4, 0x04, 0x00, 0x0e, 0x32, 0x50, 0x41, 0x59, 0x2e, 0x53, 0x59, 0x53, 0x2e, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00};
+    success = nfc.inDataExchange(apdu, sizeof(apdu), recv, &recvLength);
+
+    if(success)
+    {
+      Serial.println("[Log] Success sending APDU");
+      for(uint8_t i = 0; i < recvLength; ++i)
+      {
+        Serial.print(recv[i], HEX);
+        Serial.print(" ");
+      }
+      Serial.println("");      
+    }
+  }  
 }
 
 
@@ -337,6 +459,7 @@ void loop()
     case STATE_IDLE: stateIdle(); break;
     case STATE_RECEIVE: stateReceive(); break;
     case STATE_TRANSMIT: stateTransmit(); break;
+    case STATE_NFC_READ: stateNFCRead(); break;
   }
 }
 
