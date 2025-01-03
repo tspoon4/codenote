@@ -11,14 +11,21 @@ from datetime import timedelta
 PEERS_DEFAULT = '00'
 SEARCH_DEFAULT = 'Input at least 3 characters'
 
-SEARCH_ORDER = ['count DESC', 'dht_torrents.hash ASC', 'dht_torrents.name ASC', 'dht_torrents.time DESC', 'dht_torrents.size DESC', 'dht_torrents.files DESC']
-PEERS_ORDER = ['count DESC', 'dht_geoip.country ASC', 'dht_geoip.name ASC']
+SEARCH_ORDER = ['count DESC', 'hash ASC', 'dht_torrents.name ASC', 'dht_torrents.time DESC', 'dht_torrents.size DESC', 'dht_torrents.files DESC']
+PEERS_ORDER = ['count DESC', 'peer ASC', 'country ASC', 'name ASC']
 
 SQL_TOP24 = 'SELECT tmp.count, tmp.hash, name, time, size, files FROM (SELECT COUNT(*) AS count, hash FROM dht_peers GROUP BY hash ORDER BY {0} LIMIT 400) AS tmp JOIN dht_torrents ON tmp.hash = dht_torrents.hash LIMIT 100'
+
 SQL_LATEST = "SELECT count, tmp2.hash, name, time, size, files FROM (SELECT COUNT(*) AS count, tmp.hash FROM (SELECT hash FROM dht_torrents WHERE time > %s ORDER BY time DESC LIMIT 100) AS tmp JOIN dht_peers ON tmp.hash = dht_peers.hash GROUP BY tmp.hash) AS tmp2 JOIN dht_torrents ON tmp2.hash = dht_torrents.hash ORDER BY {0}"
+
 SQL_SEARCH = 'SELECT COUNT(*) AS count, dht_torrents.hash, name, dht_torrents.time, size, files FROM dht_torrents LEFT OUTER JOIN dht_peers ON dht_torrents.hash = dht_peers.hash WHERE name LIKE %s GROUP BY dht_torrents.hash ORDER BY {0} LIMIT 100 OFFSET %s'
+
 SQL_SEARCH_HASH = 'SELECT COUNT(*) AS count, dht_torrents.hash, name, dht_torrents.time, size, files FROM dht_torrents LEFT OUTER JOIN dht_peers ON dht_torrents.hash = dht_peers.hash WHERE dht_torrents.hash = %s GROUP BY dht_torrents.hash'
-SQL_PEERS = 'SELECT COUNT(*) AS count, country, name FROM dht_geoip JOIN dht_peers ON dht_geoip.subnet = SUBSTRING(dht_peers.peer FOR 3) WHERE dht_peers.hash = %s GROUP BY country, name ORDER BY {0} LIMIT 100 OFFSET %s'
+
+SQL_SEARCH_PEER = 'SELECT tmp2.count, tmp2.hash, name, dht_torrents.time, size, files FROM (SELECT COUNT(*) AS count, dht_peers.hash FROM (SELECT hash FROM dht_peers WHERE peer = %s) AS tmp JOIN dht_peers ON dht_peers.hash = tmp.hash GROUP BY dht_peers.hash) AS tmp2 JOIN dht_torrents ON dht_torrents.hash = tmp2.hash ORDER BY {0} LIMIT 100 OFFSET %s'
+
+SQL_PEERS = 'SELECT tmp2.count, tmp2.peer, country, name FROM (SELECT COUNT(*) AS count, dht_peers.peer FROM (SELECT peer FROM dht_peers WHERE dht_peers.hash = %s) AS tmp JOIN dht_peers ON dht_peers.peer = tmp.peer GROUP BY dht_peers.peer) AS tmp2 JOIN dht_geoip ON dht_geoip.subnet = SUBSTRING(tmp2.peer FOR 3) ORDER BY {0} LIMIT 100 OFFSET %s'
+
 SQL_STAT_CRAWL = 'SELECT SUM(total), SUM(timeout), SUM(sample_ext), SUM(peers_found) FROM dht_crawl WHERE start > (CURRENT_TIMESTAMP - INTERVAL %s)'
 SQL_STAT_META = 'SELECT SUM(total), SUM(timeout), SUM(ut_metadata), SUM(torrents_found) FROM dht_meta WHERE start > (CURRENT_TIMESTAMP - INTERVAL %s)'
 
@@ -106,7 +113,17 @@ def search(request):
 				cursor.execute(SQL_SEARCH_HASH, [hashinfo])
 				results = cursor.fetchall()
 			except: pass
-		
+
+		if len(query) == 12:
+			try:
+				test = binascii.a2b_hex(query)
+				if order >= len(SEARCH_ORDER): order = 0
+				peer = "\\x" + query
+				offset = page * 100
+				cursor.execute(SQL_SEARCH_PEER.format(SEARCH_ORDER[order]), [peer, offset])
+				results = cursor.fetchall()
+			except: pass
+				
 		if len(results) == 0:
 			if len(query) < 3: query = SEARCH_DEFAULT
 			if order >= len(SEARCH_ORDER): order = 0
@@ -141,9 +158,15 @@ def peers(request):
 		cursor.execute(SQL_PEERS.format(PEERS_ORDER[order]), [hashinfo, offset])
 		results = cursor.fetchall()
 
+	peers = list()
+	for row in results:
+		row1 = binascii.hexlify(row[1]).decode()
+		entry = (row[0], row1, row[2], row[3])
+		peers.append(entry)
+
 	template = loader.get_template('dhtsearch/peers.html')
 	qstring = { 'query': query, 'page': page, 'order': order }
-	context = { 'qstring': qstring, 'peers': results, 'range': range(0, 20) }
+	context = { 'qstring': qstring, 'peers': peers, 'range': range(0, 20) }
 	return HttpResponse(template.render(context, request))
 
 

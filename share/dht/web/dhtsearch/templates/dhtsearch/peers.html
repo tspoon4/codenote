@@ -31,18 +31,21 @@ body { background-color:black; color:grey; font-family:"Monospace"; font-size:14
 </div>
 <table style='width:60%; margin-left:auto; margin-right:auto; border-collapse:collapse' border='1'>
 <tr>
-{% if qstring.order == 0 %}<th class='cell'>PEER</th>
-{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query}}&p={{ qstring.page }}&o=0'>PEER</a></th>{% endif %}
-{% if qstring.order == 1 %}<th class='cell'>COUNTRY</th>
-{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query }}&p={{ qstring.page }}&o=1'>COUNTRY</a></th>{% endif %}
-{% if qstring.order == 2 %}<th class='cell'>NAME</th>
-{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query }}&p={{ qstring.page }}&o=2'>NAME</a></th>{% endif %}
+{% if qstring.order == 0 %}<th class='cell'>HASH</th>
+{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query}}&p={{ qstring.page }}&o=0'>HASH</a></th>{% endif %}
+{% if qstring.order == 1 %}<th class='cell'>PEER</th>
+{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query}}&p={{ qstring.page }}&o=1'>PEER</a></th>{% endif %}
+{% if qstring.order == 2 %}<th class='cell'>COUNTRY</th>
+{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query }}&p={{ qstring.page }}&o=2'>COUNTRY</a></th>{% endif %}
+{% if qstring.order == 3 %}<th class='cell'>NAME</th>
+{% else %}<th class='cell'><a href='/dhtsearch/peers?q={{ qstring.query }}&p={{ qstring.page }}&o=3'>NAME</a></th>{% endif %}
 </tr>
 {% for p in peers %}
 <tr>
-<td class='cell'>{{ p.0 }}</td>
+<td class='cell'><a href='/dhtsearch/search?q={{ p.1 }}'>{{ p.0 }}</a></td>
 <td class='cell'>{{ p.1 }}</td>
 <td class='cell'>{{ p.2 }}</td>
+<td class='cell'>{{ p.3 }}</td>
 </tr>
 {% endfor %}
 </table>
